@@ -1,8 +1,12 @@
 package com.thibaultdacla.ppm_technical_assessment
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import io.branch.indexing.BranchUniversalObject
 import io.branch.referral.Branch
+import io.branch.referral.Branch.BranchLinkCreateListener
 import io.branch.referral.BranchError
-import io.branch.referral.SharingHelper
 import io.branch.referral.util.LinkProperties
-import io.branch.referral.util.ShareSheetStyle
 import org.json.JSONObject
 
 
@@ -107,6 +110,10 @@ class MainActivity : ComponentActivity() {
     }
 
     fun createAndShare(){
+
+        // THIS PART WAS INSPIRED BY THE TEST BED APP (with some adaptations) BUT DOESN'T SEEM TO
+        // WORK WITH THE KEY PROVIDED (ONLY WORKS WITH THE TEST KEY)
+
         val buo = BranchUniversalObject()
             .setCanonicalIdentifier("content/12345")
             .setTitle("My Content Title")
@@ -116,35 +123,74 @@ class MainActivity : ComponentActivity() {
             .setLocalIndexMode(BranchUniversalObject.CONTENT_INDEX_MODE.PUBLIC)
 
         val lp = LinkProperties()
-            .setChannel("facebook")
-            .setFeature("sharing")
-            .setCampaign("content 123 launch")
-            .setStage("new user")
+            .addTag("Tag1")
+            .setChannel("Sharing_Channel_name")
+            .setFeature("my_feature_name")
+            .addControlParameter("\$android_deeplink_path", "custom/path/*")
+            .addControlParameter("\$ios_url", "http://example.com/ios")
             .addControlParameter("deep_link_test", "other")
+            .setDuration(100)
 
-        buo.generateShortUrl(this, lp) { url, error ->
-            if (error == null) {
-                Log.i("BRANCH SDK", "got my Branch link to share: $url")
-            }
-        }
+        // Async Link creation example
+        buo.generateShortUrl(this@MainActivity, lp,
+            BranchLinkCreateListener { url, error ->
+                if (error != null) {
+                    Log.e("BRANCH_SDK", error.message)
+                } else {
+                    copyTextToClipboard(url.toString())
+                    Log.i("T_DACLA", "URL: "+url)
+                }
+            })
 
-        val ss = ShareSheetStyle(this@MainActivity, "Check this out!", "This stuff is awesome: ")
-            .setCopyUrlStyle(getDrawable(android.R.drawable.ic_menu_send), "Copy", "Added to clipboard")
-            .setMoreOptionStyle(getDrawable(android.R.drawable.ic_menu_search), "Show more")
-            .addPreferredSharingOption(SharingHelper.SHARE_WITH.FACEBOOK)
-            .addPreferredSharingOption(SharingHelper.SHARE_WITH.EMAIL)
-            .addPreferredSharingOption(SharingHelper.SHARE_WITH.MESSAGE)
-            .addPreferredSharingOption(SharingHelper.SHARE_WITH.HANGOUT)
-            .setAsFullWidthStyle(true)
-            .setSharingTitle("Share : ")
 
-        buo.showShareSheet(this, lp, ss, object : Branch.BranchLinkShareListener {
-            override fun onShareLinkDialogLaunched() {}
-            override fun onShareLinkDialogDismissed() {}
-            override fun onLinkShareResponse(sharedLink: String?, sharedChannel: String?, error: BranchError?) {}
-            override fun onChannelSelected(channelName: String) {}
-        })
+        // THIS PART WAS COPIED FROM THE DOCUMENTATION (with some adaptations) BUT DOESN'T WORK
 
+//        val buo = BranchUniversalObject()
+//            .setCanonicalIdentifier("content/12345")
+//            .setTitle("My Content Title")
+//            .setContentDescription("My Content Description")
+//            .setContentImageUrl("https://lorempixel.com/400/400")
+//            .setContentIndexingMode(BranchUniversalObject.CONTENT_INDEX_MODE.PUBLIC)
+//            .setLocalIndexMode(BranchUniversalObject.CONTENT_INDEX_MODE.PUBLIC)
+//
+//        val lp = LinkProperties()
+//            .setChannel("facebook")
+//            .setFeature("sharing")
+//            .setCampaign("content 123 launch")
+//            .setStage("new user")
+//            .addControlParameter("$android_deeplink_path", "custom/path/*")
+//            .addControlParameter("deep_link_test", "other")
+
+//        buo.generateShortUrl(this, lp) { url, error ->
+//            if (error == null) {
+//                Log.i("BRANCH SDK", "got my Branch link to share: $url")
+//            }
+//        }
+//
+//        val ss = ShareSheetStyle(this@MainActivity, "Check this out!", "This stuff is awesome: ")
+//            .setCopyUrlStyle(getDrawable(android.R.drawable.ic_menu_send), "Copy", "Added to clipboard")
+//            .setMoreOptionStyle(getDrawable(android.R.drawable.ic_menu_search), "Show more")
+//            .addPreferredSharingOption(SharingHelper.SHARE_WITH.FACEBOOK)
+//            .addPreferredSharingOption(SharingHelper.SHARE_WITH.EMAIL)
+//            .addPreferredSharingOption(SharingHelper.SHARE_WITH.MESSAGE)
+//            .addPreferredSharingOption(SharingHelper.SHARE_WITH.HANGOUT)
+//            .setAsFullWidthStyle(true)
+//            .setSharingTitle("Share : ")
+//
+//        buo.showShareSheet(this, lp, ss, object : Branch.BranchLinkShareListener {
+//            override fun onShareLinkDialogLaunched() {}
+//            override fun onShareLinkDialogDismissed() {}
+//            override fun onLinkShareResponse(sharedLink: String?, sharedChannel: String?, error: BranchError?) {}
+//            override fun onChannelSelected(channelName: String) {}
+//        })
+
+    }
+
+    private fun copyTextToClipboard(text:String) {
+        val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        val clipData = ClipData.newPlainText("label", text)
+        clipboardManager.setPrimaryClip(clipData)
+        Toast.makeText(this, "Deep Link copied to clipboard", Toast.LENGTH_LONG).show()
     }
 }
 
